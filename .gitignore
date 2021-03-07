@@ -1,0 +1,5 @@
+CNN/data/
+MLP/data/
+data/
+*.pt
+*.gz
