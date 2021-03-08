@@ -1,9 +1,10 @@
 import argparse
-
+import os
 import numpy as np
 import torch
 from torch import nn, optim
 from torchvision import datasets, transforms
+
 
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -38,9 +39,12 @@ def get_mnist(BATCH_SIZE: int):
     mnist_test = datasets.MNIST(root="./data/", train=False, transform=transforms.ToTensor(), download=True)
 
     train_iter = torch.utils.data.DataLoader(mnist_train, batch_size=BATCH_SIZE, shuffle=True, num_workers=1)
-    test_iter = torch.utils.data.DataLoader(mnist_test, batch_size=BATCH_SIZE, shuffle=True, num_workers=1)
+    test_iter = torch.utils.data.DataLoader( mnist_test, batch_size=BATCH_SIZE, shuffle=True, num_workers=1)
 
     return train_iter, test_iter
+
+
+    
 
 
 def get_network(LEARNING_RATE: float, device: str):
@@ -134,6 +138,8 @@ if __name__ == "__main__":
 
     config = get_config()
     print(f"This code use [{config.device}]")
+
+
 
     train_iter, test_iter = get_mnist(config.BATCH_SIZE)
     print(f"Preparing dataset done!")

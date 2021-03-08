@@ -3,3 +3,4 @@ MLP/data/
 data/
 *.pt
 *.gz
+*.png
