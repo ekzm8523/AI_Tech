@@ -4,3 +4,4 @@ data/
 *.pt
 *.gz
 *.png
+*.DS_Store
