@@ -1,3 +1,4 @@
+# 재원이가 고침 ㅎㅎㅎ
 import argparse
 import glob
 import json
@@ -16,26 +17,30 @@ from torch.utils.tensorboard import SummaryWriter
 
 from dataset import MaskBaseDataset
 from loss import create_criterion
-
+from eda import custom_imshow
 
 def seed_everything(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+    torch.cuda.manual_seed_all(seed)  # if use multi-GPU
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    random.seed(seed)
+
 
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
         return param_group['lr']
 
-def grid_image(np_images, gts, preds, n=16, shuffle=False):
-    batch_size = np.images.shape[0]
+
+def grid_image(np_images, gts, preds, shuffle=False, n=16):
+    batch_size = np_images.shape[0]
     assert n <= batch_size
 
     choices = random.choices(range(batch_size), k=n) if shuffle else list(range(n))
-    figure = plt.figure(figsize=(12, 18 + 2)) # caution: hardcoded, 이미지 크기에 따라 figsize를 조절해야 할 수 있습니다.
-    plt.subplots_adjust(top=0.8) # caution: hardcoded, 이미지 크기에 따라 top의 사이즈를 조절해야 할 수 있습니다.
+    figure = plt.figure(figsize=(12, 18 + 2))  # cautions: hardcoded, 이미지 크기에 따라 figsize 를 조정해야 할 수 있습니다. T.T
+    plt.subplots_adjust(top=0.8)               # cautions: hardcoded, 이미지 크기에 따라 top 를 조정해야 할 수 있습니다. T.T
     n_grid = np.ceil(n ** 0.5)
     tasks = ["mask", "gender", "age"]
     for idx, choice in enumerate(choices):
@@ -59,9 +64,9 @@ def grid_image(np_images, gts, preds, n=16, shuffle=False):
 
     return figure
 
+
 def increment_path(path, exist_ok=False):
-    """
-        Automatically increment path, i.e. runs/exp -> runs/exp0, runs/exp1 etc.
+    """ Automatically increment path, i.e. runs/exp --> runs/exp0, runs/exp1 etc.
 
     Args:
         path (str or pathlib.Path): f"{model_dir}/{args.name}".
@@ -78,7 +83,7 @@ def increment_path(path, exist_ok=False):
         return f"{path}{n}"
 
 
-def train(data_dir, model_dir, args):
+def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./model/exp , args
     seed_everything(args.seed)
 
     save_dir = increment_path(os.path.join(model_dir, args.name))
@@ -88,14 +93,14 @@ def train(data_dir, model_dir, args):
     device = torch.device("cuda" if use_cuda else "cpu")
 
     # -- dataset
-    dataset_module = getattr(import_module("dataset"), args.dataset) # dafault: BaseAugmentation
+    dataset_module = getattr(import_module("dataset"), args.dataset)  # default: BaseAugmentation
     dataset = dataset_module(
-        dataset=data_dir,
+        data_dir=data_dir,
     )
-    num_classes = dataset.num_classes # 18
+    num_classes = dataset.num_classes  # 18
 
     # -- augmentation
-    transform_module = getattr(import_module("dataset"), args.augmentation) # default: BaseAugmentation
+    transform_module = getattr(import_module("dataset"), args.augmentation)  # default: BaseAugmentation
     transform = transform_module(
         resize=args.resize,
         mean=dataset.mean,
@@ -105,6 +110,7 @@ def train(data_dir, model_dir, args):
 
     # -- data_loader
     train_set, val_set = dataset.split_dataset()
+
 
     train_loader = DataLoader(
         train_set,
@@ -117,7 +123,7 @@ def train(data_dir, model_dir, args):
 
     val_loader = DataLoader(
         val_set,
-        batch_size=args.batch_size,
+        batch_size=args.valid_batch_size,
         num_workers=8,
         shuffle=False,
         pin_memory=use_cuda,
@@ -125,20 +131,33 @@ def train(data_dir, model_dir, args):
     )
 
     # -- model
-    model_module = getattr(import_module("model"), args.model) # default : BaseModel
+    model_module = getattr(import_module("model"), args.model)  # default: BaseModel
     model = model_module(
         num_classes=num_classes
     ).to(device)
-    model = torch.nn.DataParallel(model)
+
+    # for param in model.net.parameters():
+        #     param.requires_grad = False
+        #
+        # for param in model.net.classifier.parameters():
+        #     param.requires_grad = True
+    if torch.cuda.device_count() > 1:
+        model = torch.nn.DataParallel(model)
+
 
     # -- loss & metric
-    criterion = create_criterion(args.criterion) # default: cross_entropy
-    opt_module = getattr(import_module("torch.optim"), args.optimizer) # default: SGD
+    criterion = create_criterion(args.criterion)  # default: cross_entropy
+
+    opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: SGD
+
     optimizer = opt_module(
         filter(lambda p: p.requires_grad, model.parameters()),
+            # [{'params': model.base.parameters()},
+            # {'params': model.classifier.parameters(), 'lr': 1e-3}],
         lr=args.lr,
-        weight_decay=5e-4,
+        weight_decay=5e-4
     )
+
     scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
 
     # -- logging
@@ -146,9 +165,8 @@ def train(data_dir, model_dir, args):
     with open(os.path.join(save_dir, 'config.json'), 'w', encoding='utf-8') as f:
         json.dump(vars(args), f, ensure_ascii=False, indent=4)
 
-
     best_val_acc = 0
-    best_cal_loss = np.inf
+    best_val_loss = np.inf
     for epoch in range(args.epochs):
         # train loop
         model.train()
@@ -166,7 +184,7 @@ def train(data_dir, model_dir, args):
             loss = criterion(outs, labels)
 
             loss.backward()
-            optimizer.steop()
+            optimizer.step()
 
             loss_value += loss.item()
             matches += (preds == labels).sum().item()
@@ -176,13 +194,14 @@ def train(data_dir, model_dir, args):
                 current_lr = get_lr(optimizer)
                 print(
                     f"Epoch[{epoch}/{args.epochs}]({idx + 1}/{len(train_loader)}) || "
-                    f"training loss {train_loss:4.4} || training accuracy {train_acc:4.2%} || lr{current_lr}"
+                    f"training loss {train_loss:4.4} || training accuracy {train_acc:4.2%} || lr {current_lr}"
                 )
                 logger.add_scalar("Train/loss", train_loss, epoch * len(train_loader) + idx)
                 logger.add_scalar("Train/accuracy", train_acc, epoch * len(train_loader) + idx)
 
                 loss_value = 0
                 matches = 0
+
         scheduler.step()
 
         # val loop
@@ -207,11 +226,11 @@ def train(data_dir, model_dir, args):
 
                 if figure is None:
                     inputs_np = torch.clone(inputs).detach().cpu().permute(0, 2, 3, 1).numpy()
-                    inputs_np = dataset_module.denormaize_image(inputs_np, dataset.mean, dataset.std)
+                    inputs_np = dataset_module.denormalize_image(inputs_np, dataset.mean, dataset.std)
                     figure = grid_image(inputs_np, labels, preds, args.dataset != "MaskSplitByProfileDataset")
 
             val_loss = np.sum(val_loss_items) / len(val_loader)
-            val_acc = np.sum(val_loss_items) / len(val_set)
+            val_acc = np.sum(val_acc_items) / len(val_set)
             best_val_loss = min(best_val_loss, val_loss)
             if val_acc > best_val_acc:
                 print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..")
@@ -244,28 +263,23 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate (default: 1e-3)')
     parser.add_argument('--val_ratio', type=float, default=0.2, help='ratio for validaton (default: 0.2)')
     parser.add_argument('--criterion', type=str, default='cross_entropy', help='criterion type (default: cross_entropy)')
-    parser.add_argument('--lr_decay_step', type=int, default=20, help='learning rate scheduler decay step (default: 20)')
+    parser.add_argument('--lr_decay_step', type=int, default=20, help='learning rate scheduler deacy step (default: 20)')
     parser.add_argument('--log_interval', type=int, default=20, help='how many batches to wait before logging training status')
     parser.add_argument('--name', default='exp', help='model save at {SM_MODEL_DIR}/{name}')
+    parser.add_argument('--pretrained', type=bool, default=False, help='pretrained default is False')
 
     # Container environment
     parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train/images'))
     parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR', './model'))
-
+    parser.add_argument('--test_dir', type=str, default=os.environ.get('SM_CHANNEL_TEST', '/opt/ml/input/data/eval'))
     args = parser.parse_args()
     print(args)
 
+    print("Let's use", torch.cuda.device_count(), "GPUs!")
+
     data_dir = args.data_dir
     model_dir = args.model_dir
-
+    test_dir = args.test_dir
     train(data_dir, model_dir, args)
-
-
-
-
-
-
-
-
 
 

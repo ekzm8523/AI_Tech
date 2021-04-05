@@ -7,11 +7,12 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import classification_report
 
+
 def evaluation(gt_dir, pred_dir):
     """
     Args:
-        gt_dir (string): root directory of ground truth file
-        pred_dir (string): root directory of prediction file (output of inference.py)
+        gt_dir (string) : root directory of ground truth file
+        pred_dir (string) : root directory of prediction file (output of inference.py)
     """
     num_classes = 18
     results = {}
@@ -28,17 +29,17 @@ def evaluation(gt_dir, pred_dir):
         'decs': True,
     }
     results['f1'] = {
-        'value': f'{acc:.2f}%',
+        'value': f'{f1:.2f}%',
         'rank': False,
         'decs': True,
     }
 
     return json.dumps(results)
 
-if __name__ == '__main__':
-   gt_dir = os.environ.get('SM_GROUND_TRUTH_DIR')
-   pred_dir = os.environ.get('SM_OUTPUT_DATA_DIR')
-
-   from pprint import pprint
-   results = evaluation(gt_dir, pred_dir)
-   pprint(results)
+#if __name__ == '__main__':
+#    gt_dir = os.environ.get('SM_GROUND_TRUTH_DIR')
+#    pred_dir = os.environ.get('SM_OUTPUT_DATA_DIR')
+#
+#    from pprint import pprint
+#    results = evaluation(gt_dir, pred_dir)
+#    pprint(results)
