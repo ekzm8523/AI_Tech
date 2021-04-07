@@ -148,6 +148,24 @@ class resnet50(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+class custom_resnet50(nn.Module):
+    def __init__(self, num_classes):
+        super(custom_resnet50, self).__init__()
+
+        model = timm.create_model('resnet50', pretrained=True)
+        self.backbone = nn.Sequential(*(list(model.children())[:-2]))
+        self.mask_classifier = ClassifierHead(2048, 3)
+        self.gender_classifier = ClassifierHead(2048, 2)
+        self.age_classifier = ClassifierHead(2048, 3)
+
+
+    def forward(self, x):
+        x = self.backbone(x)
+        z = self.age_classifier(x)
+        y = self.gender_classifier(x)
+        x = self.mask_classifier(x)
+        return x, y, z
+
 class efficientnet_b3(nn.Module):
     def __init__(self, num_classes):
         super(efficientnet_b3, self).__init__()
@@ -156,15 +174,11 @@ class efficientnet_b3(nn.Module):
         self.backbone = nn.Sequential(*(list(model.children())[:-2]))
 
         self.classifier = ClassifierHead(1536, 18)
-        # self.gender_classifier = ClassifierHead(1000, 2)
-        # self.age_classifier = ClassifierHead(1000, 3)
+
 
     def forward(self, x):
         x = self.backbone(x)
         x = self.classifier(x)
-        # z = self.age_classifier(x)
-        # y = self.gender_classifier(x)
-        # x = self.mask_classifier(x)
         return x
 
 class custom_efficientnet_b3(nn.Module):
@@ -184,5 +198,4 @@ class custom_efficientnet_b3(nn.Module):
         y = self.gender_classifier(x)
         x = self.mask_classifier(x)
         return x, y, z
-
 

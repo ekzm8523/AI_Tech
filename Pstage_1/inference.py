@@ -60,8 +60,13 @@ def inference(data_dir, model_dir, output_dir, args):
         for idx, images in enumerate(loader):
             images = images.to(device)
             pred = model(images)
-            pred = pred.argmax(dim=-1)
-            preds.extend(pred.cpu().numpy())
+            mask_pred = pred[0].argmax(dim=-1)
+            gender_pred = pred[1].argmax(dim=-1)
+            age_pred = pred[2].argmax(dim=-1)
+            # pred = pred.argmax(dim=-1)
+            label = MaskBaseDataset.encode_multi_class(mask_pred,gender_pred,age_pred)
+
+            preds.extend(label.cpu().numpy())
 
     info['ans'] = preds
     info.to_csv(os.path.join(output_dir, f'output.csv'), index=False)
@@ -95,8 +100,12 @@ def direct_inference(model, test_dir, args):
         with torch.no_grad():
             images = images.to(device)
             pred = model(images)
-            pred = pred.argmax(dim=-1)
-            all_predictions.extend(pred.cpu().numpy())
+
+            mask_pred = pred[0].argmax(dim=-1)
+            gender_pred = pred[1].argmax(dim=-1)
+            age_pred = pred[2].argmax(dim=-1)
+            label = MaskBaseDataset.encode_multi_class(mask_pred,gender_pred,age_pred)
+            all_predictions.extend(label.cpu().numpy())
     submission['ans'] = all_predictions
 
     # 제출할 파일을 저장합니다.

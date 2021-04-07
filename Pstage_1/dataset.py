@@ -9,7 +9,8 @@ from PIL import Image
 from torch.utils.data import Subset
 from torchvision import transforms
 from torchvision.transforms import *
-
+from RandAugment import RandAugment
+from sklearn.model_selection import StratifiedKFold
 IMG_EXTENSIONS = [
     ".jpg", ".JPG", ".jpeg", ".JPEG", ".png",
     ".PNG", ".ppm", ".PPM", ".bmp", ".BMP",
@@ -54,6 +55,7 @@ class CustomAugmentation:
             CenterCrop((320, 256)),
             Resize(resize, Image.BILINEAR),
             # ColorJitter(0.1, 0.1, 0.1, 0.1),
+            RandAugment(1,15),
             ToTensor(),
             Normalize(mean=mean, std=std),
             # AddGaussianNoise()
@@ -92,7 +94,7 @@ class MaskBaseDataset(data.Dataset):
     mask_labels = []
     gender_labels = []
     age_labels = []
-
+    multi_class_labels = []
     def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
         self.data_dir = data_dir
         self.mean = mean
@@ -127,7 +129,7 @@ class MaskBaseDataset(data.Dataset):
                 self.mask_labels.append(mask_label)
                 self.gender_labels.append(gender_label)
                 self.age_labels.append(age_label)
-
+                self.multi_class_labels.append(self.encode_multi_class(mask_label,gender_label,age_label))
     def calc_statistics(self):
         has_statistics = self.mean is not None and self.std is not None # mean과 std가 none이 아닐때 True
         if not has_statistics:
@@ -255,14 +257,29 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
         return [Subset(self, indices) for phase, indices in self.indices.items()]
 
 
+# class TestDataset(data.Dataset):
+#     def __init__(self, img_paths, resize, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246)):
+#         self.img_paths = img_paths
+#         self.transform = transforms.Compose([
+#             Resize(resize, Image.BILINEAR),
+#             ToTensor(),
+#             Normalize(mean=mean, std=std),
+#         ])
+#
+#     def __getitem__(self, index):
+#         image = Image.open(self.img_paths[index])
+#
+#         if self.transform:
+#             image = self.transform(image)
+#         return image
+#
+#     def __len__(self):
+#         return len(self.img_paths)
+
 class TestDataset(data.Dataset):
-    def __init__(self, img_paths, resize, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246)):
+    def __init__(self, img_paths, transform):
         self.img_paths = img_paths
-        self.transform = transforms.Compose([
-            Resize(resize, Image.BILINEAR),
-            ToTensor(),
-            Normalize(mean=mean, std=std),
-        ])
+        self.transform = transform
 
     def __getitem__(self, index):
         image = Image.open(self.img_paths[index])
