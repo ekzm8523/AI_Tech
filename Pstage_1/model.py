@@ -1,10 +1,31 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# import timm
+import timm
+from timm.models.layers.classifier import ClassifierHead
 import torchvision
 import functools
 import operator
+from efficientnet_pytorch import EfficientNet
+
+class Network(nn.Module):
+    def __init__(self, pretrained_model, out_features, input_dim=(3, 224, 224)):
+        super(Network, self).__init__()
+        # Load pretrained model, only feature extractors
+        self.backbone = nn.Sequential(*(list(pretrained_model.children())[:-1]))
+        # Auto-calculate input for the fc layers
+        num_features_before_fcnn = functools.reduce(operator.mul,
+                                                    list(self.backbone(torch.rand(1, *input_dim)).shape))
+        # Fc layer
+        self.fc1 = nn.Sequential(nn.Linear(in_features=num_features_before_fcnn, out_features=out_features), )
+
+    def forward(self, x):
+        output = self.backbone(x)
+        output = output.view(output.size()[0], -1)
+        output = self.fc1(output)
+        return output
+
+
 
 class BaseModel(nn.Module):
     def __init__(self, num_classes):
@@ -118,7 +139,7 @@ def darknet53(num_classes):
 
 class resnet50(nn.Module):
     def __init__(self, num_classes):
-        super().__init__()
+        super(resnet50, self).__init__()
 
         self.net = torchvision.models.resnet.resnet50()
         self.net.fc = nn.Linear(in_features=2048, out_features=18)
@@ -126,3 +147,42 @@ class resnet50(nn.Module):
 
     def forward(self, x):
         return self.net(x)
+
+class efficientnet_b3(nn.Module):
+    def __init__(self, num_classes):
+        super(efficientnet_b3, self).__init__()
+
+        model = timm.create_model('efficientnet_b3', pretrained=True)
+        self.backbone = nn.Sequential(*(list(model.children())[:-2]))
+
+        self.classifier = ClassifierHead(1536, 18)
+        # self.gender_classifier = ClassifierHead(1000, 2)
+        # self.age_classifier = ClassifierHead(1000, 3)
+
+    def forward(self, x):
+        x = self.backbone(x)
+        x = self.classifier(x)
+        # z = self.age_classifier(x)
+        # y = self.gender_classifier(x)
+        # x = self.mask_classifier(x)
+        return x
+
+class custom_efficientnet_b3(nn.Module):
+    def __init__(self, num_classes):
+        super(custom_efficientnet_b3, self).__init__()
+
+        model = timm.create_model('efficientnet_b3', pretrained=True)
+        self.backbone = nn.Sequential(*(list(model.children())[:-2]))
+
+        self.age_classifier = ClassifierHead(1536, 3)
+        self.gender_classifier = ClassifierHead(1536, 2)
+        self.mask_classifier = ClassifierHead(1536, 3)
+
+    def forward(self, x):
+        x = self.backbone(x)
+        z = self.age_classifier(x)
+        y = self.gender_classifier(x)
+        x = self.mask_classifier(x)
+        return x, y, z
+
+

@@ -53,10 +53,10 @@ class CustomAugmentation:
         self.transform = transforms.Compose([
             CenterCrop((320, 256)),
             Resize(resize, Image.BILINEAR),
-            ColorJitter(0.1, 0.1, 0.1, 0.1),
+            # ColorJitter(0.1, 0.1, 0.1, 0.1),
             ToTensor(),
             Normalize(mean=mean, std=std),
-            AddGaussianNoise()
+            # AddGaussianNoise()
         ])
 
     def __call__(self, image):
@@ -76,7 +76,7 @@ class MaskBaseDataset(data.Dataset):
         female = 1
 
     class AgeGroup:
-        map_label = lambda x: 0 if int(x) < 30 else 1 if int(x) < 60 else 2
+        map_label = lambda x: 0 if int(x) < 30 else 1 if int(x) < 58 else 2
 
     _file_names = {
         "mask1": MaskLabels.mask,
@@ -153,7 +153,7 @@ class MaskBaseDataset(data.Dataset):
         multi_class_label = self.encode_multi_class(mask_label, gender_label, age_label)
 
         image_transform = self.transform(image)
-        return image_transform, multi_class_label
+        return image_transform, (mask_label, gender_label, age_label)
 
     def __len__(self):
         return len(self.image_paths)

@@ -17,7 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from dataset import MaskBaseDataset
 from loss import create_criterion
-from eda import custom_imshow
+from inference import direct_inference
 
 def seed_everything(seed):
     torch.manual_seed(seed)
@@ -82,6 +82,12 @@ def increment_path(path, exist_ok=False):
         n = max(i) + 1 if i else 2
         return f"{path}{n}"
 
+def getDataLoader(dataset, train_idx, valid_idx, batch_size, num_workers):
+    train_set = torch.utils.data.Subset(dataset, indices=train_idx)
+    val_set = torch.utils.data.Subset(dataset, indices=valid_idx)
+
+
+
 
 def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./model/exp , args
     seed_everything(args.seed)
@@ -115,7 +121,7 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
     train_loader = DataLoader(
         train_set,
         batch_size=args.batch_size,
-        num_workers=8,
+        num_workers=2,
         shuffle=True,
         pin_memory=use_cuda,
         drop_last=True,
@@ -124,7 +130,7 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
     val_loader = DataLoader(
         val_set,
         batch_size=args.valid_batch_size,
-        num_workers=8,
+        num_workers=2,
         shuffle=False,
         pin_memory=use_cuda,
         drop_last=True,
@@ -136,27 +142,22 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
         num_classes=num_classes
     ).to(device)
 
-    # for param in model.net.parameters():
-        #     param.requires_grad = False
-        #
-        # for param in model.net.classifier.parameters():
-        #     param.requires_grad = True
-    if torch.cuda.device_count() > 1:
-        model = torch.nn.DataParallel(model)
+    model = torch.nn.DataParallel(model)
 
 
     # -- loss & metric
     criterion = create_criterion(args.criterion)  # default: cross_entropy
 
-    opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: SGD
-
-    optimizer = opt_module(
-        filter(lambda p: p.requires_grad, model.parameters()),
-            # [{'params': model.base.parameters()},
-            # {'params': model.classifier.parameters(), 'lr': 1e-3}],
-        lr=args.lr,
-        weight_decay=5e-4
-    )
+    # opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: SGD
+    #
+    # optimizer = opt_module(
+    #     filter(lambda p: p.requires_grad, model.parameters()),
+    #
+    #     lr=args.lr,
+    #     weight_decay=5e-4
+    # )
+    from adamp import AdamP
+    optimizer = AdamP(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=1e-2)
 
     scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
 
@@ -245,6 +246,8 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
             logger.add_scalar("Val/accuracy", val_acc, epoch)
             logger.add_figure("results", figure, epoch)
             print()
+    if args.direct_inference:
+        direct_inference(model,args.test_dir,args)
 
 
 if __name__ == '__main__':
@@ -266,8 +269,8 @@ if __name__ == '__main__':
     parser.add_argument('--lr_decay_step', type=int, default=20, help='learning rate scheduler deacy step (default: 20)')
     parser.add_argument('--log_interval', type=int, default=20, help='how many batches to wait before logging training status')
     parser.add_argument('--name', default='exp', help='model save at {SM_MODEL_DIR}/{name}')
-    parser.add_argument('--pretrained', type=bool, default=False, help='pretrained default is False')
-
+    # parser.add_argument('--pretrained', type=bool, default=False, help='pretrained default is False')
+    parser.add_argument('--direct_inference', type=bool, default=True, help='direct inference (default: True)')
     # Container environment
     parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train/images'))
     parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR', './model'))
