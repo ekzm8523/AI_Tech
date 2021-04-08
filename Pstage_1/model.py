@@ -102,11 +102,23 @@ class Darknet53(nn.Module):
         self.residual_block5 = self.make_layer(block, in_channels=1024, num_blocks=4)
 
         self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.classifier = nn.Sequential(
+        self.mask_classifier = nn.Sequential(
             nn.Dropout(),
             nn.Linear(1024, 256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, num_classes),
+            nn.Linear(256, 3),
+        )
+        self.gender_classifier = nn.Sequential(
+            nn.Dropout(),
+            nn.Linear(1024, 256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, 2),
+        )
+        self.age_classifier = nn.Sequential(
+            nn.Dropout(),
+            nn.Linear(1024, 256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, 3),
         )
 
     def forward(self, x):
@@ -123,9 +135,11 @@ class Darknet53(nn.Module):
         out = self.residual_block5(out)
         out = self.global_avg_pool(out)
         out = out.view(-1, 1024)
-        out = self.classifier(out)
+        age = self.age_classifier(out)
+        gender = self.gender_classifier(out)
+        out = self.mask_classifier(out) # mask인데 메모리 절약차원에서..
 
-        return out
+        return out, gender, age
 
     def make_layer(self, block, in_channels, num_blocks):
         layers = []

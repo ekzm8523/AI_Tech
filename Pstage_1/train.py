@@ -84,17 +84,13 @@ def increment_path(path, exist_ok=False):
         n = max(i) + 1 if i else 2
         return f"{path}{n}"
 
-def getDataLoader(dataset, train_idx, valid_idx, batch_size, num_workers):
-    train_set = torch.utils.data.Subset(dataset, indices=train_idx)
-    val_set = torch.utils.data.Subset(dataset, indices=valid_idx)
-
 
 def custom_loss(output, target, criterion):
     mask_loss = criterion(output[0], target[0])
     gender_loss = criterion(output[1], target[1])
     age_loss = criterion(output[2], target[2])
-    return (0.2 * mask_loss) + (0.2 * gender_loss) + (0.6 * age_loss),\
-            mask_loss.item(), gender_loss.item(), age_loss.item()
+    return (0.2 * mask_loss) + (0.2 * gender_loss) + (0.6 * age_loss), \
+           mask_loss.item(), gender_loss.item(), age_loss.item()
 
 def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./model/exp , args
     seed_everything(args.seed)
@@ -111,7 +107,6 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
         data_dir=data_dir,
     )
     num_classes = dataset.num_classes  # 18
-    skf = StratifiedKFold(n_splits=5, shuffle=True)
 
     # -- augmentation
     transform_module = getattr(import_module("dataset"), args.augmentation)  # default: BaseAugmentation
@@ -126,7 +121,6 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
     # -- data_loader
     train_set, val_set = dataset.split_dataset()
 
-    # for fold, (train_set, val_set) in enumerate(skf.split(dataset, dataset.age_labels)):
     train_loader = DataLoader(
         train_set,
         batch_size=args.batch_size,

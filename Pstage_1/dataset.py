@@ -24,6 +24,7 @@ def is_image_file(filename):
 class BaseAugmentation:
     def __init__(self, resize, mean, std, **args):
         self.transform = transforms.Compose([
+            CenterCrop((320, 256)),
             Resize(resize, Image.BILINEAR),
             ToTensor(),
             Normalize(mean=mean, std=std),
@@ -95,12 +96,12 @@ class MaskBaseDataset(data.Dataset):
     gender_labels = []
     age_labels = []
     multi_class_labels = []
-    def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
+    def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2, is_multiclass=True):
         self.data_dir = data_dir
         self.mean = mean
         self.std = std
         self.val_ratio = val_ratio
-
+        self.is_multiclass = is_multiclass
         self.transform = None
         self.setup() # image, mask, gender, age 라벨별로 분류
         self.calc_statistics() #
@@ -155,7 +156,10 @@ class MaskBaseDataset(data.Dataset):
         multi_class_label = self.encode_multi_class(mask_label, gender_label, age_label)
 
         image_transform = self.transform(image)
-        return image_transform, (mask_label, gender_label, age_label)
+        if self.is_multiclass:
+            return image_transform, (mask_label, gender_label, age_label)
+        else:
+            return image_transform, multi_class_label
 
     def __len__(self):
         return len(self.image_paths)
@@ -207,9 +211,9 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
         구현은 val_ratio 에 맞게 train / val 나누는 것을 이미지 전체가 아닌 사람(profile)에 대해서 진행하여 indexing 을 합니다
         이후 `split_dataset` 에서 index 에 맞게 Subset 으로 dataset 을 분기합니다.
     """
-    def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
+    def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2, is_multiclass=True):
         self.indices = defaultdict(list)
-        super().__init__(data_dir, mean, std, val_ratio)
+        super().__init__(data_dir, mean, std, val_ratio, is_multiclass)
 
     @staticmethod
     def _split_profile(profiles, val_ratio):
@@ -249,6 +253,7 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
                     self.mask_labels.append(mask_label)
                     self.gender_labels.append(gender_label)
                     self.age_labels.append(age_label)
+                    self.multi_class_labels.append(self.encode_multi_class(mask_label, gender_label, age_label))
 
                     self.indices[phase].append(cnt)
                     cnt += 1
@@ -257,29 +262,14 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
         return [Subset(self, indices) for phase, indices in self.indices.items()]
 
 
-# class TestDataset(data.Dataset):
-#     def __init__(self, img_paths, resize, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246)):
-#         self.img_paths = img_paths
-#         self.transform = transforms.Compose([
-#             Resize(resize, Image.BILINEAR),
-#             ToTensor(),
-#             Normalize(mean=mean, std=std),
-#         ])
-#
-#     def __getitem__(self, index):
-#         image = Image.open(self.img_paths[index])
-#
-#         if self.transform:
-#             image = self.transform(image)
-#         return image
-#
-#     def __len__(self):
-#         return len(self.img_paths)
-
 class TestDataset(data.Dataset):
-    def __init__(self, img_paths, transform):
+    def __init__(self, img_paths, resize, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246)):
         self.img_paths = img_paths
-        self.transform = transform
+        self.transform = transforms.Compose([
+            Resize(resize, Image.BILINEAR),
+            ToTensor(),
+            Normalize(mean=mean, std=std),
+        ])
 
     def __getitem__(self, index):
         image = Image.open(self.img_paths[index])
@@ -290,3 +280,18 @@ class TestDataset(data.Dataset):
 
     def __len__(self):
         return len(self.img_paths)
+
+# class TestDataset(data.Dataset):
+#     def __init__(self, img_paths, transform):
+#         self.img_paths = img_paths
+#         self.transform = transform
+#
+#     def __getitem__(self, index):
+#         image = Image.open(self.img_paths[index])
+#
+#         if self.transform:
+#             image = self.transform(image)
+#         return image
+#
+#     def __len__(self):
+#         return len(self.img_paths)
