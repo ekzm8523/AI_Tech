@@ -87,7 +87,7 @@ def increment_path(path, exist_ok=False):
         return f"{path}{n}"
 
 
-def custom_loss(output, target, criterion):
+def custom_loss(output, target, criterion): # mask, age, gender 클래스 별 분류에 필요한 loss function
     mask_loss = criterion(output[0], target[0])
     gender_loss = criterion(output[1], target[1])
     age_loss = criterion(output[2], target[2])
@@ -152,7 +152,84 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
 
         train_set.is_multiclass = is_multiclass
         val_set.is_multiclass = is_multiclass
-        if fold == 2:
+        if fold == 0:
+            print(
+                f"fold : {fold} \t model : efficientnet_b3 \t criterion : focal"
+            )
+
+            train_loader = DataLoader(
+                train_set,
+                batch_size=args.batch_size,
+                num_workers=1,
+                shuffle=True,
+                pin_memory=use_cuda,
+                drop_last=True,
+            )
+
+            val_loader = DataLoader(
+                val_set,
+                batch_size=args.valid_batch_size,
+                num_workers=1,
+                shuffle=False,
+                pin_memory=use_cuda,
+                drop_last=True,
+            )
+
+            # -- model
+            model_module = getattr(import_module("model"), "efficientnet_b3")  # default: BaseModel
+            model = model_module(
+                num_classes=num_classes
+            ).to(device)
+
+            model = torch.nn.DataParallel(model)
+
+            # -- loss & metric
+            criterion = create_criterion("focal")  # default: cross_entropy
+
+            optimizer = AdamP(
+                filter(lambda p: p.requires_grad, model.parameters()),
+                lr=1e-5,
+                weight_decay=1e-2)
+
+        elif fold == 1:
+            print(
+                f"fold : {fold} \t model : resnet50 \t criterion : cross_entropy"
+            )
+            train_loader = DataLoader(
+                train_set,
+                batch_size=args.batch_size,
+                num_workers=1,
+                shuffle=True,
+                pin_memory=use_cuda,
+                drop_last=True,
+            )
+
+            val_loader = DataLoader(
+                val_set,
+                batch_size=args.valid_batch_size,
+                num_workers=1,
+                shuffle=False,
+                pin_memory=use_cuda,
+                drop_last=True,
+            )
+
+            # -- model
+            model_module = getattr(import_module("model"), "resnet50")  # default: BaseModel
+            model = model_module(
+                num_classes=num_classes
+            ).to(device)
+
+            model = torch.nn.DataParallel(model)
+
+            # -- loss & metric
+            criterion = create_criterion("cross_entropy")  # default: cross_entropy
+
+            optimizer = AdamP(
+                filter(lambda p: p.requires_grad, model.parameters()),
+                lr=1e-5,
+                weight_decay=1e-2)
+
+        elif fold == 2:
             print(
                 f"fold : {fold} \t model : custom_resnet50 \t criterion : cross_entropy"
             )
@@ -270,81 +347,7 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
                 filter(lambda p: p.requires_grad, model.parameters()),
                 lr=1e-5,
                 weight_decay=1e-2)
-        elif fold == 1:
-            print(
-                f"fold : {fold} \t model : resnet50 \t criterion : cross_entropy"
-            )
-            train_loader = DataLoader(
-                train_set,
-                batch_size=args.batch_size,
-                num_workers=1,
-                shuffle=True,
-                pin_memory=use_cuda,
-                drop_last=True,
-            )
 
-            val_loader = DataLoader(
-                val_set,
-                batch_size=args.valid_batch_size,
-                num_workers=1,
-                shuffle=False,
-                pin_memory=use_cuda,
-                drop_last=True,
-            )
-
-            # -- model
-            model_module = getattr(import_module("model"), "resnet50")  # default: BaseModel
-            model = model_module(
-                num_classes=num_classes
-            ).to(device)
-
-            model = torch.nn.DataParallel(model)
-
-            # -- loss & metric
-            criterion = create_criterion("cross_entropy")  # default: cross_entropy
-
-            optimizer = AdamP(
-                filter(lambda p: p.requires_grad, model.parameters()),
-                lr=1e-5,
-                weight_decay=1e-2)
-        elif fold == 0:
-            print(
-                f"fold : {fold} \t model : efficientnet_b3 \t criterion : focal"
-            )
-
-            train_loader = DataLoader(
-                train_set,
-                batch_size=args.batch_size,
-                num_workers=1,
-                shuffle=True,
-                pin_memory=use_cuda,
-                drop_last=True,
-            )
-
-            val_loader = DataLoader(
-                val_set,
-                batch_size=args.valid_batch_size,
-                num_workers=1,
-                shuffle=False,
-                pin_memory=use_cuda,
-                drop_last=True,
-            )
-
-            # -- model
-            model_module = getattr(import_module("model"), "efficientnet_b3")  # default: BaseModel
-            model = model_module(
-                num_classes=num_classes
-            ).to(device)
-
-            model = torch.nn.DataParallel(model)
-
-            # -- loss & metric
-            criterion = create_criterion("focal")  # default: cross_entropy
-
-            optimizer = AdamP(
-                filter(lambda p: p.requires_grad, model.parameters()),
-                lr=1e-5,
-                weight_decay=1e-2)
 
 
         scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
@@ -378,50 +381,38 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
                     optimizer.zero_grad()
 
                     outs = model(inputs)
-                    #preds = torch.argmax(outs, dim=-1)
                     mask_preds = torch.argmax(outs[0], dim=-1)
                     gender_preds = torch.argmax(outs[1], dim=-1)
                     age_preds = torch.argmax(outs[2], dim=-1)
 
-                    # loss = criterion(outs, labels)
                     loss, mask_loss, gender_loss, age_loss = custom_loss(outs, (mask_labels, gender_labels, age_labels), criterion)
                     loss.backward()
                     optimizer.step()
 
-                    # loss_value += loss.item()
                     mask_loss_value += mask_loss
                     gender_loss_value += gender_loss
                     age_loss_value += age_loss
 
-                    # matches += (preds == labels).sum().item()
                     mask_matches += (mask_preds == mask_labels).sum().item()
                     gender_matches += (gender_preds == gender_labels).sum().item()
                     age_matches += (age_preds == age_labels).sum().item()
 
                     if (idx + 1) % args.log_interval == 0:
-                        # train_loss = loss_value / args.log_interval
                         mask_train_loss = mask_loss_value / args.log_interval
                         gender_train_loss = gender_loss_value / args.log_interval
                         age_train_loss = age_loss_value / args.log_interval
 
-                        # train_acc = matches / args.batch_size / args.log_interval
                         mask_train_acc = mask_matches / args.batch_size / args.log_interval
                         gender_train_acc = gender_matches / args.batch_size / args.log_interval
                         age_train_acc = age_matches / args.batch_size / args.log_interval
                         current_lr = get_lr(optimizer)
                         print(
                             f"Epoch[{epoch}/{args.epochs}]({idx + 1}/{len(train_loader)}) || "
-                            # f"training loss {train_loss:4.4} || training accuracy {train_acc:4.2%} || lr {current_lr}\n"
                             f"mask_training loss {mask_train_loss:4.4} || mask_training accuracy {mask_train_acc:4.2%} || lr {current_lr}\n"
                             f"gender_training loss {gender_train_loss:4.4} || gender_training accuracy {gender_train_acc:4.2%} || lr {current_lr}\n"
                             f"age_training loss {age_train_loss:4.4} || age_training accuracy {age_train_acc:4.2%} || lr {current_lr}\n"
 
                         )
-                        # logger.add_scalar("Train/loss", train_loss, epoch * len(train_loader) + idx)
-                        # logger.add_scalar("Train/accuracy", train_acc, epoch * len(train_loader) + idx)
-
-                        # loss_value = 0
-                        # matches = 0
                         mask_loss_value = gender_loss_value = age_loss_value = 0
                         mask_matches = gender_matches = age_matches = 0
 
@@ -431,8 +422,6 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
                 with torch.no_grad():
                     print("Calculating validation results...")
                     model.eval()
-                    # val_loss_items = []
-                    # val_acc_items = []
                     mask_val_loss_items = []
                     gender_val_loss_items = []
                     age_val_loss_items = []
@@ -443,7 +432,6 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
                     multi_class_acc_items = []
                     f1_score_items = []
 
-                    figure = None
                     for val_batch in val_loader:
                         inputs, labels = val_batch
                         inputs = inputs.to(device)
@@ -454,13 +442,11 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
                         multi_class_labels = 6*mask_labels + 3*gender_labels + age_labels
 
                         outs = model(inputs)
-                        # preds = torch.argmax(outs, dim=-1)
                         mask_preds = torch.argmax(outs[0], dim=-1)
                         gender_preds = torch.argmax(outs[1], dim=-1)
                         age_preds = torch.argmax(outs[2], dim=-1)
                         preds = 6*mask_preds + 3*gender_preds + age_preds
 
-                        # loss_item = criterion(outs, labels).item()
                         (loss, mask_loss, gender_loss, age_loss) = custom_loss(outs, (mask_labels, gender_labels, age_labels), criterion)
                         mask_acc_item = (mask_labels == mask_preds).sum().item()
                         gender_acc_item = (gender_labels == gender_preds).sum().item()
@@ -470,25 +456,16 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
                         multi_class_labels = multi_class_labels.cpu().numpy()
                         f1_score_item = f1_score(multi_class_labels, preds, average='macro')
 
-                        # val_loss_items.append(loss_item)
                         mask_val_loss_items.append(mask_loss)
                         gender_val_loss_items.append(gender_loss)
                         age_val_loss_items.append(age_loss)
 
 
-                        # val_acc_items.append(acc_item)
                         mask_val_acc_items.append(mask_acc_item)
                         gender_val_acc_items.append(gender_acc_item)
                         age_val_acc_items.append(age_acc_item)
                         multi_class_acc_items.append(multi_class_acc_item)
                         f1_score_items.append(f1_score_item)
-                    #     if figure is None:
-                    #         inputs_np = torch.clone(inputs).detach().cpu().permute(0, 2, 3, 1).numpy()
-                    #         inputs_np = dataset_module.denormalize_image(inputs_np, dataset.mean, dataset.std)
-                    #         figure = grid_image(inputs_np, labels, preds, args.dataset != "MaskSplitByProfileDataset")
-                    #
-                    # val_loss = np.sum(val_loss_items) / len(val_loader)
-                    # val_acc = np.sum(val_acc_items) / len(val_set)
 
                     mask_val_loss = np.sum(mask_val_loss_items)
                     gender_val_loss = np.sum(gender_val_loss_items)
@@ -521,9 +498,7 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
                     if counter > patience:
                         print("Early Stopping...")
                         break
-                # logger.add_scalar("Val/loss", avg_val_loss, epoch)
-                # logger.add_scalar("Val/accuracy", avg_val_acc, epoch)
-                # logger.add_figure("results", figure, epoch)
+
                 print()
         else:
             for epoch in range(args.epochs):
@@ -555,8 +530,6 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
                             f"Epoch[{epoch}/{args.epochs}]({idx + 1}/{len(train_loader)}) || "
                             f"training loss {train_loss:4.4} || training accuracy {train_acc:4.2%} || lr {current_lr}"
                         )
-                        # logger.add_scalar("Train/loss", train_loss, epoch * len(train_loader) + idx)
-                        # logger.add_scalar("Train/accuracy", train_acc, epoch * len(train_loader) + idx)
 
                         loss_value = 0
                         matches = 0
@@ -583,11 +556,6 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
                         val_loss_items.append(loss_item)
                         val_acc_items.append(acc_item)
 
-                        # if figure is None:
-                        #     inputs_np = torch.clone(inputs).detach().cpu().permute(0, 2, 3, 1).numpy()
-                        #     inputs_np = dataset_module.denormalize_image(inputs_np, dataset.mean, dataset.std)
-                        #     figure = grid_image(inputs_np, labels, preds, args.dataset != "MaskSplitByProfileDataset")
-
                     val_loss = np.sum(val_loss_items) / len(val_loader)
                     val_acc = np.sum(val_acc_items) / len(val_set)
                     best_val_loss = min(best_val_loss, val_loss)
@@ -600,49 +568,9 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
                         f"[Val] acc : {val_acc:4.2%}, loss: {val_loss:4.2} || "
                         f"best acc : {best_val_acc:4.2%}, best loss: {best_val_loss:4.2}"
                     )
-                    # logger.add_scalar("Val/loss", val_loss, epoch)
-                    # logger.add_scalar("Val/accuracy", val_acc, epoch)
-                    # logger.add_figure("results", figure, epoch)
                     print()
 
-        all_predictions = []
-        with torch.no_grad():
-            for images in test_loader:
-                images = images.to(device)
-                if is_multiclass:
-                    pred = model(images)
-                    mask_pred = pred[0].view(-1)
-                    gender_pred = pred[1].view(-1)
-                    age_pred = pred[2].view(-1)
-                    new_pred = torch.empty(18)
-                    i = 0
-                    for mask in mask_pred:
-                        for gender in gender_pred:
-                            for age in age_pred:
-                                new_pred[i] = (mask + gender + age) / 3
-                                i += 1
-                    all_predictions.extend(new_pred.cpu().numpy())
-
-                else:
-                # Test Time Augmentation
-
-                    pred = model(images).view(-1)  # 원본 이미지를 예측하고
-                    # pred += model(torch.flip(images)) / 2  # flip으로 뒤집어 예측합니다.
-                    all_predictions.extend(pred.cpu().numpy())
-
-            fold_pred = np.array(all_predictions)
-
-        if oof_pred is None:
-            oof_pred = fold_pred / 5
-        else:
-            oof_pred += fold_pred / 5
-    submission['ans'] = np.argmax(oof_pred, axis=1)
-    submission.to_csv(os.path.join(args.test_dir, 'submission.csv'), index=False)
     print('test inference is done!')
-
-    # if args.direct_inference:
-    #         direct_inference(model,args.test_dir,args)
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

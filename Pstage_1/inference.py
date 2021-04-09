@@ -93,14 +93,12 @@ def kfold_load_model(data_dir, model_dir, output_dir, args):
                     images = images.to(device)
                     pred = model(images)
                     preds.extend(pred.cpu().numpy())
+
         fold_pred = np.array(preds)
-        print(fold_pred)
-        print(len(fold_pred))
         if oof_pred is None:
             oof_pred = fold_pred / 5
         else:
             oof_pred += fold_pred / 5
-        print(len(oof_pred))
 
 
     print(info)
@@ -136,17 +134,25 @@ def inference(data_dir, model_dir, output_dir, args):
 
     print("Calculating inference results..")
     preds = []
-    with torch.no_grad():
-        for idx, images in enumerate(loader):
-            images = images.to(device)
-            pred = model(images)
-            mask_pred = pred[0].argmax(dim=-1)
-            gender_pred = pred[1].argmax(dim=-1)
-            age_pred = pred[2].argmax(dim=-1)
-            # pred = pred.argmax(dim=-1)
-            label = MaskBaseDataset.encode_multi_class(mask_pred,gender_pred,age_pred)
+    if args.custom_classifier: # mask, gender, age 별 분류
+        with torch.no_grad():
+            for idx, images in enumerate(loader):
+                images = images.to(device)
+                pred = model(images)
+                mask_pred = pred[0].argmax(dim=-1)
+                gender_pred = pred[1].argmax(dim=-1)
+                age_pred = pred[2].argmax(dim=-1)
+                pred = MaskBaseDataset.encode_multi_class(mask_pred,gender_pred,age_pred)
 
-            preds.extend(label.cpu().numpy())
+                preds.extend(pred.cpu().numpy())
+    else:
+        with torch.no_grad():
+            for idx, images in enumerate(loader):
+                images = images.to(device)
+                pred = model(images)
+
+                preds.extend(pred.cpu().numpy())
+
     print(info['ans'])
     info['ans'] = preds
     info.to_csv(os.path.join(output_dir, f'output.csv'), index=False)
@@ -201,6 +207,7 @@ if __name__ == '__main__':
     parser.add_argument('--resize', type=tuple, default=(224, 224), help='resize size for image when you trained (default: (224, 224))')
     parser.add_argument('--model', type=str, default='BaseModel', help='model type (default: BaseModel)')
     parser.add_argument('--k_fold', type=bool, default=False, help='k-fold using for k_fold True (default: False)')
+    parser.add_argument('--custom_classifier', type=bool, default=False, help='True : 18 classifier , False : mask, gender, age 별 분류 (default: False)')
 
     # Container environment
     parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_EVAL', '/opt/ml/input/data/eval'))
@@ -216,5 +223,7 @@ if __name__ == '__main__':
 
 
     os.makedirs(output_dir, exist_ok=True)
-    kfold_load_model(data_dir, model_dir, output_dir, args)
-    # inference(data_dir, model_dir, output_dir, args)
+    if args.k_fold:
+        kfold_load_model(data_dir, model_dir, output_dir, args)
+    else:
+        inference(data_dir, model_dir, output_dir, args)

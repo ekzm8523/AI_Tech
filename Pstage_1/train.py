@@ -228,7 +228,7 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
                 age_train_acc = age_matches / args.batch_size / args.log_interval
                 current_lr = get_lr(optimizer)
                 print(
-                    f"Epoch[{epoch}/{args.epochs}]({idx + 1}/{len(train_loader)}) || "
+                    f"Epoch[{epoch}/{args.epochs}]({idx + 1}/{len(train_loader)})  \n"
                     # f"training loss {train_loss:4.4} || training accuracy {train_acc:4.2%} || lr {current_lr}\n"
                     f"mask_training loss {mask_train_loss:4.4} || mask_training accuracy {mask_train_acc:4.2%} || lr {current_lr}\n"
                     f"gender_training loss {gender_train_loss:4.4} || gender_training accuracy {gender_train_acc:4.2%} || lr {current_lr}\n"
@@ -238,8 +238,6 @@ def train(data_dir, model_dir, args): # /opt/ml/input/data/train/images/ , ./mod
                 # logger.add_scalar("Train/loss", train_loss, epoch * len(train_loader) + idx)
                 # logger.add_scalar("Train/accuracy", train_acc, epoch * len(train_loader) + idx)
 
-                # loss_value = 0
-                # matches = 0
                 mask_loss_value = gender_loss_value = age_loss_value = 0
                 mask_matches = gender_matches = age_matches = 0
 

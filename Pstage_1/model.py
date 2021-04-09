@@ -8,7 +8,7 @@ import functools
 import operator
 from efficientnet_pytorch import EfficientNet
 
-class Network(nn.Module):
+class Network(nn.Module): # pretrained model classifier를 num_classes에 맞추어 변형 해주는 class
     def __init__(self, pretrained_model, out_features, input_dim=(3, 224, 224)):
         super(Network, self).__init__()
         # Load pretrained model, only feature extractors
@@ -151,7 +151,7 @@ class Darknet53(nn.Module):
 def darknet53(num_classes):
     return Darknet53(DarkResidualBlock, num_classes)
 
-class resnet50(nn.Module):
+class resnet50(nn.Module): # 18 class 분류
     def __init__(self, num_classes):
         super(resnet50, self).__init__()
 
@@ -162,7 +162,7 @@ class resnet50(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-class custom_resnet50(nn.Module):
+class custom_resnet50(nn.Module): # mask, age, gender 클래스 별 분류
     def __init__(self, num_classes):
         super(custom_resnet50, self).__init__()
 
@@ -180,7 +180,7 @@ class custom_resnet50(nn.Module):
         x = self.mask_classifier(x)
         return x, y, z
 
-class efficientnet_b3(nn.Module):
+class efficientnet_b3(nn.Module): # 18 class 분류
     def __init__(self, num_classes):
         super(efficientnet_b3, self).__init__()
 
@@ -195,7 +195,7 @@ class efficientnet_b3(nn.Module):
         x = self.classifier(x)
         return x
 
-class custom_efficientnet_b3(nn.Module):
+class custom_efficientnet_b3(nn.Module): # mask, age, gender 클래스 별 분류
     def __init__(self, num_classes):
         super(custom_efficientnet_b3, self).__init__()
 
