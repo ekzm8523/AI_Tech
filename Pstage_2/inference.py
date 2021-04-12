@@ -35,39 +35,39 @@ def load_test_dataset(dataset_dir, tokenizer):
   return tokenized_test, test_label
 
 def main(args):
-  """
-    주어진 dataset tsv 파일과 같은 형태일 경우 inference 가능한 코드입니다.
-  """
-  device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-  # load tokenizer
-  TOK_NAME = "bert-base-multilingual-cased"  
-  tokenizer = AutoTokenizer.from_pretrained(TOK_NAME)
+    """
+      주어진 dataset tsv 파일과 같은 형태일 경우 inference 가능한 코드입니다.
+    """
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    # load tokenizer
+    TOK_NAME = "bert-base-multilingual-cased"
+    tokenizer = AutoTokenizer.from_pretrained(TOK_NAME)
 
-  # load my model
-  MODEL_NAME = args.model_dir # model dir.
-  model = BertForSequenceClassification.from_pretrained(args.model_dir)
-  model.parameters
-  model.to(device)
+    # load my model
+    MODEL_NAME = args.model_dir # model dir.
+    model = BertForSequenceClassification.from_pretrained(args.model_dir)
+    model.parameters
+    model.to(device)
 
-  # load test datset
-  test_dataset_dir = "/opt/ml/input/data/test/test.tsv"
-  test_dataset, test_label = load_test_dataset(test_dataset_dir, tokenizer)
-  test_dataset = RE_Dataset(test_dataset ,test_label)
+    # load test datset
+    test_dataset_dir = "/opt/ml/input/data/test/test.tsv"
+    test_dataset, test_label = load_test_dataset(test_dataset_dir, tokenizer)
+    test_dataset = RE_Dataset(test_dataset ,test_label)
 
-  # predict answer
-  pred_answer = inference(model, test_dataset, device)
-  # make csv file with predicted answer
-  # 아래 directory와 columns의 형태는 지켜주시기 바랍니다.
+    # predict answer
+    pred_answer = inference(model, test_dataset, device)
+    # make csv file with predicted answer
+    # 아래 directory와 columns의 형태는 지켜주시기 바랍니다.
 
-  output = pd.DataFrame(pred_answer, columns=['pred'])
-  output.to_csv('./prediction/submission.csv', index=False)
+    output = pd.DataFrame(pred_answer, columns=['pred'])
+    output.to_csv('./prediction/submission.csv', index=False)
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser()
-  
-  # model dir
-  parser.add_argument('--model_dir', type=str, default="./results/checkpoint-500")
-  args = parser.parse_args()
-  print(args)
-  main(args)
+    parser = argparse.ArgumentParser()
+
+    # model dir
+    parser.add_argument('--model_dir', type=str, default="./results/checkpoint-2000")
+    args = parser.parse_args()
+    print(args)
+    main(args)
   
