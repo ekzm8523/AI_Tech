@@ -69,6 +69,7 @@ def train(args):
     
     model_module = getattr(import_module("transformers"), args.model + "ForSequenceClassification")
     # model = BertForSequenceClassification(bert_config) ########
+    # model = BertForSequenceClassification.from_pretrained(MODEL_NAME, bert_config=bert_config) ########
     model = model_module(model_config)
     model.parameters
     model.to(device)

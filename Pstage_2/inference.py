@@ -66,7 +66,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # model dir
-    parser.add_argument('--model_dir', type=str, default="./results/checkpoint-2000")
+    parser.add_argument('--model_dir', type=str, default="./results/expr2/checkpoint-2500")
     args = parser.parse_args()
     print(args)
     main(args)

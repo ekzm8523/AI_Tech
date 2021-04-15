@@ -10,11 +10,12 @@ class RE_Dataset(torch.utils.data.Dataset):
         self.labels = labels
 
     def __getitem__(self, idx):
-        item = {key: torch.tensor(val[idx]) for key, val in self.tokenized_dataset.items()}
+        item = {key: val[idx].clone().detach() for key, val in self.tokenized_dataset.items()}
+        # item = {key: torch.tensor(val[idx]) for key, val in self.tokenized_dataset.items()}
         # print(item)
         item['labels'] = torch.tensor(self.labels[idx])
 
-        return item
+        return item # input_ids, token_type_ids, attention_mask, label return
 
     def __len__(self):
         return len(self.labels)
@@ -33,14 +34,10 @@ def preprocessing_dataset(dataset, label_type):
 
 # tsv 파일을 불러옵니다.
 def load_data(dataset_dir):
-  # load label_type, classes
     with open('/opt/ml/input/data/label_type.pkl', 'rb') as f:
-        label_type = pickle.load(f) # dict type
-    # load dataset
-    dataset = pd.read_csv(dataset_dir, delimiter='\t', header=None) # dataframe
-    # preprecessing dataset
+        label_type = pickle.load(f)
+    dataset = pd.read_csv(dataset_dir, delimiter='\t', header=None)
     dataset = preprocessing_dataset(dataset, label_type)
-
     return dataset
 
 # bert input을 위한 tokenizing.
