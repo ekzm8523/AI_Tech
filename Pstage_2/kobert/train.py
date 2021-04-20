@@ -133,6 +133,9 @@ def train():
 			train_acc_sum = 0.0
 			test_acc = 0.0
 			best_acc = 0.0
+			test_loss = 0.0
+			best_loss = 0.0
+			
 			model.train()
 			for batch_id, (token_ids, valid_length, segment_ids, label) in enumerate(train_iter):
 				optimizer.zero_grad()
@@ -165,6 +168,7 @@ def train():
 				out = model(token_ids, valid_length, segment_ids)
 				test_acc += calc_accuracy(out, label)
 			print("epoch {} test acc {}".format(e + 1, test_acc / (batch_id + 1)))
+			
 			if test_acc >= best_acc:
 				best_acc = test_acc
 				torch.save(model.state_dict(), f"/opt/ml/model/model_state_dict{fold}.pt")
