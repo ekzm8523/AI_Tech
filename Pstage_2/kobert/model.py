@@ -23,8 +23,9 @@ class BERTClassifier(nn.Module):
 	
 	def forward(self, token_ids, valid_length, segment_ids):
 		attention_mask = self.get_attention_mask(token_ids, valid_length)
-		_, pooler = self.bert(input_ids=token_ids, token_type_ids=segment_ids.long(),
-							  attention_mask=attention_mask.float().to(token_ids.device))
+		_, out = self.bert(input_ids=token_ids, token_type_ids=segment_ids.long(),
+						   attention_mask=attention_mask.float().to(token_ids.device))
+		
 		if self.dr_rate:
-			out = self.dropout(pooler)
+			out = self.dropout(out)
 		return self.classifier(out)
