@@ -111,7 +111,7 @@ def train(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', type=str, default="Bert", help='transform model choice (default : Bert) ')
-    parser.add_argument('--pretrained_model', type=str, default="bert-base-multilingual-cased", help='Which pretrained model will you bring? (default : bert-base-multilingual-cased)')
+    parser.add_argument('--pretrained_model', type=str, default="xlm-roberta-base", help='Which pretrained model will you bring? (default : bert-base-multilingual-cased)')
 
     parser.add_argument('--epochs', type=int, default=4, help='number of epochs to train (default: 1)')
     parser.add_argument('--batch_size', type=int, default=16, help='input batch size for training (default: 64)')

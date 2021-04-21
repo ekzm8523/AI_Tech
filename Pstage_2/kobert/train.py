@@ -6,6 +6,8 @@ from dataset import *
 from model import *
 from loss import *
 from transformers import AdamW
+from adamp import AdamP
+
 from transformers import ElectraModel, ElectraTokenizer
 import random
 import gluonnlp as nlp
@@ -112,7 +114,8 @@ def train():
 			 'weight_decay': 0.01},
 			{'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
 		]
-		optimizer = AdamW(optimizer_grouped_parameters, lr=learning_rate)
+		# optimizer = AdamW(optimizer_grouped_parameters, lr=learning_rate)
+		optimizer = AdamP(optimizer_grouped_parameters, lr=learning_rate, betas=(0.9, 0.999), weight_decay=1e-2)
 		
 		train_dataset = BERTDataset(train_dataset, 0, 1, tok, max_len, True, False)
 		val_dataset = BERTDataset(val_dataset, 0, 1, tok, max_len, True, False)
@@ -171,7 +174,7 @@ def train():
 			
 			if test_acc >= best_acc:
 				best_acc = test_acc
-				torch.save(model.state_dict(), f"/opt/ml/model/model_state_dict{fold}.pt")
+				torch.save(model.state_dict(), f"/opt/ml/model/{args.name}{fold}.pt")
 			wandb.log({"val accuracy": test_acc/(len(val_dataset)/batch_size)})
 if __name__ == '__main__':
 	
@@ -179,9 +182,9 @@ if __name__ == '__main__':
 	# parser.add_argument('--model', type=str, default="Bert", help="transform model choice (default : Bert) ")
 	# parser.add_argument('--pretrained_model', type=str, default="bert-base-multilingual-cased", help='Which pretrained model will you bring? (default : bert-base-multilingual-cased)')
 	parser.add_argument('--seed', type=int, default=42)
-	parser.add_argument('--epochs', type=int, default=10, help='number of epochs to train (default: 1)')
+	parser.add_argument('--epochs', type=int, default=20, help='number of epochs to train (default: 1)')
 	parser.add_argument('--batch_size', type=int, default=32, help='input batch size for training (default: 64)')
-	parser.add_argument('--lr', type=float, default=5e-5, help='learning rate (default: 5e-5)')
+	parser.add_argument('--lr', type=float, default=3e-5, help='learning rate (default: 5e-5)')
 	parser.add_argument('--warmup_ratio', type=float, default=0.01, help='weight ratio (default: 0.01)')
 	parser.add_argument('--warmup_steps', type=int, default=500, help='number of warmup steps for learning rate scheduler (default : 500)')
 	parser.add_argument('--max_len', type=int, default=128)
@@ -192,7 +195,7 @@ if __name__ == '__main__':
 	parser.add_argument('--output_dir', type=str, default='./results', help='save checkpoint (default : ./results/expr)')
 	parser.add_argument('--train_dir', type=str, default="/opt/ml/input/data/train")
 	parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR', './model'))
-	
+	parser.add_argument('--name', type=str, default="kobert")
 	
 	args = parser.parse_args()
 	print(args)
