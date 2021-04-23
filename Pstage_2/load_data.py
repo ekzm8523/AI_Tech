@@ -2,7 +2,7 @@ import pickle as pickle
 import os
 import pandas as pd
 import torch
-
+# from pororo import Pororo
 # Dataset 구성.
 class RE_Dataset(torch.utils.data.Dataset):
     def __init__(self, tokenized_dataset, labels):
@@ -11,8 +11,6 @@ class RE_Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         item = {key: val[idx].clone().detach() for key, val in self.tokenized_dataset.items()}
-        # item = {key: torch.tensor(val[idx]) for key, val in self.tokenized_dataset.items()}
-        # print(item)
         item['labels'] = torch.tensor(self.labels[idx])
 
         return item # input_ids, token_type_ids, attention_mask, label return
@@ -31,13 +29,21 @@ def preprocessing_dataset(dataset, label_type):
             label.append(label_type[i])
     out_dataset = pd.DataFrame({'sentence':dataset[1],'entity_01':dataset[2],'entity_02':dataset[5],'label':label,})
     return out_dataset
-
+    
 # tsv 파일을 불러옵니다.
 def load_data(dataset_dir):
     with open('/opt/ml/input/data/label_type.pkl', 'rb') as f:
         label_type = pickle.load(f)
     dataset = pd.read_csv(dataset_dir, delimiter='\t', header=None)
     dataset = preprocessing_dataset(dataset, label_type)
+    return dataset
+
+def binary_load_data(dataset_dir):
+    with open('/opt/ml/input/data/label_type.pkl', 'rb') as f:
+        label_type = pickle.load(f)
+    dataset = pd.read_csv(dataset_dir, delimiter='\t', header=None)
+    dataset = preprocessing_dataset(dataset, label_type)
+    dataset['label'] = dataset['label'] > 0
     return dataset
 
 # bert input을 위한 tokenizing.
@@ -60,3 +66,34 @@ def tokenized_dataset(dataset, tokenizer):
         
         )
     return tokenized_sentences
+
+
+# def pororo_tokenized_dataset(dataset, tokenizer):
+#     concat_entity = []
+#     ner = Pororo(task="ner", lang="ko")
+#     for sent, e1, e2, start1, end1, start2, end2,  in zip(dataset['sentence'], dataset['entity_01'], dataset['entity_02'], dataset['entity_01_start'],
+#                                                           dataset['entity_01_end'], dataset['entity_02_start'], dataset['entity_02_end']):
+#         ner_01 = ' α ' + ner(e1)[0][1].lower() + ' α '
+#         ner_02 = ' β ' + ner(e2)[0][1].lower() + ' β '
+#
+#         start1, end1 = int(start1), int(end1)
+#         start2, end2 = int(start2), int(end2)
+#
+#         if start1 < start2:
+#             sent = sent[:start1] + '@' + ner_01 + sent[start1:end1+1] + ' @ ' + sent[end1+1:start2] + \
+#                 '#' + ner_02 + sent[start2:end2+1] + ' # ' + sent[end2+1:]
+#         else:
+#             sent = sent[:start2] + '#' + ner_02 + sent[start2:end2+1] + ' # ' + sent[end2+1:start1] + \
+#                 '@' + ner_01 + sent[start1:end1+1] + ' @ ' + sent[end1:]
+#
+#         concat_entity.append(sent)
+#     tokenized_sentences = tokenizer(
+#         concat_entity,
+#         return_tensors="pt",
+#         padding=True,
+#         truncation='longest_first',
+#         max_length=128,
+#         add_special_tokens=True,
+#
+#     )
+#     return tokenized_sentences
