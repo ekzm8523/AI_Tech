@@ -13,9 +13,8 @@ Stage2: [Stage2][stage2_link]
 
 Stage3: [Stage3][stage3_link]
 
-[stage3_link]: https://github.com/ekzm8523/AI_Tech/tree/main/Pstage_1
+[stage3_link]: https://github.com/bcaitech1/p4-dkt-decayt
 
 Stage4: [Stage4][stage4_link]
 
-[stage4_link]: https://github.com/ekzm8523/AI_Tech/tree/main/Pstage_1
-
+[stage4_link]: https://github.com/bcaitech1/p3-dst-teamed-st
