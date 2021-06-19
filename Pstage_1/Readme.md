@@ -45,5 +45,6 @@
 
     마스크 착용여부, 성별, 나이를 기준으로 총 18개의 클래스가 있습니다.
 
-    <img width="853" alt="_2021-06-19_16 02 29" src="https://user-images.githubusercontent.com/67869514/122634319-7490d080-d118-11eb-9880-ee1a4b276e23.png">
+<img width="853" alt="_2021-06-19_16 02 29" src="https://user-images.githubusercontent.com/67869514/122634331-90947200-d118-11eb-9422-fb888eb94b45.png">
+
 
