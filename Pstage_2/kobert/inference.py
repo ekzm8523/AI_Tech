@@ -16,9 +16,7 @@ def submit(user_key='', file_path=''):
 	if not user_key:
 		raise Exception("No UserKey")
 	url = 'http://ec2-13-124-161-225.ap-northeast-2.compute.amazonaws.com:8000/api/v1/competition/3/presigned_url/?description=&hyperparameters={%22training%22:{},%22inference%22:{}}'
-	headers = {
-		'Authorization': user_key
-	}
+	headers = {'Authorization': user_key}
 	res = requests.get(url, headers=headers)
 	print(res.text)
 	data = json.loads(res.text)
@@ -84,16 +82,12 @@ def inference(args):
 			Predict[fold].extend(out.cpu().detach().numpy())
 	
 	if args.predict_strategy == "soft":
-		soft_voting_predict = np.array(Predict[0]) + np.array(Predict[1]) \
-							  +np.array(Predict[2]) + np.array(Predict[3]) + np.array(Predict[4])
+		soft_voting_predict = sum((np.array(Predict[i]) for i in range(5)))
 		voting_predict = list(np.argmax(soft_voting_predict, axis=1))
 	else: # hard
 		voting_predict = []
 		for i in range(len(Predict[0])):
-			voting_predict.append(hard_voting(
-				[np.argmax(Predict[0][i]), np.argmax(Predict[1][i]),
-				 np.argmax(Predict[2][i]), np.argmax(Predict[3][i]),
-				 np.argmax(Predict[4][i])]))
+			voting_predict.append(hard_voting([np.argmax(Predict[j][i]) for j in range(5)]))
 	
 	output = pd.DataFrame(voting_predict, columns=['pred'])
 	output.to_csv('/opt/ml/result/submission.csv', index=False)

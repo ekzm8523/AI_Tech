@@ -20,6 +20,7 @@ import re
 from sklearn.model_selection import StratifiedKFold
 import wandb
 
+
 def calc_accuracy(X,Y):
     max_vals, max_indices = torch.max(X, 1)
     train_acc = (max_indices == Y).sum().data.cpu().numpy()/max_indices.size()[0]
@@ -95,24 +96,34 @@ def train():
 	learning_rate = args.lr
 	device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
 	################
-	
-	
+
 	for fold in range(5):
-		train_dataset = nlp.data.TSVDataset(f"/opt/ml/input/data/train/train_data{fold}.txt", field_indices=[0, 1],
-											num_discard_samples=1)
-		val_dataset = nlp.data.TSVDataset(f"/opt/ml/input/data/train/val_data{fold}.txt", field_indices=[0, 1],
-										  num_discard_samples=1)
+		train_dataset = nlp.data.TSVDataset(
+			f"/opt/ml/input/data/train/train_data{fold}.txt",
+			field_indices=[0, 1],
+			num_discard_samples=1
+		)
+		val_dataset = nlp.data.TSVDataset(
+			f"/opt/ml/input/data/train/val_data{fold}.txt",
+			field_indices=[0, 1],
+			num_discard_samples=1
+		)
 		
-		bertmodel, vocab = get_pytorch_kobert_model()
+		bert_model, vocab = get_pytorch_kobert_model()
 		tokenizer = get_tokenizer()
 		tok = nlp.data.BERTSPTokenizer(tokenizer, vocab, lower=False)
-		model = BERTClassifier(bertmodel, dr_rate=0.5).to(device)
+		model = BERTClassifier(bert_model, dr_rate=0.5).to(device)
 		
 		no_decay = ['bias', 'LayerNorm.weight']
 		optimizer_grouped_parameters = [
-			{'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-			 'weight_decay': 0.01},
-			{'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+			{
+				'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+			 	'weight_decay': 0.01
+			},
+			{
+				'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
+				'weight_decay': 0.0
+			}
 		]
 		# optimizer = AdamW(optimizer_grouped_parameters, lr=learning_rate)
 		optimizer = AdamP(optimizer_grouped_parameters, lr=learning_rate, betas=(0.9, 0.999), weight_decay=1e-2)

@@ -1,13 +1,9 @@
 import torch
 from torch import nn
 
+
 class BERTClassifier(nn.Module):
-	def __init__(self,
-				 bert,
-				 hidden_size=768,
-				 num_classes=42,
-				 dr_rate=None,
-				 params=None):
+	def __init__(self, bert, hidden_size=768, num_classes=42, dr_rate=None, params=None):
 		super(BERTClassifier, self).__init__()
 		self.bert = bert
 		self.dr_rate = dr_rate
@@ -23,8 +19,11 @@ class BERTClassifier(nn.Module):
 	
 	def forward(self, token_ids, valid_length, segment_ids):
 		attention_mask = self.get_attention_mask(token_ids, valid_length)
-		_, out = self.bert(input_ids=token_ids, token_type_ids=segment_ids.long(),
-						   attention_mask=attention_mask.float().to(token_ids.device))
+		_, out = self.bert(
+			input_ids=token_ids,
+			token_type_ids=segment_ids.long(),
+			attention_mask=attention_mask.float().to(token_ids.device)
+		)
 		
 		if self.dr_rate:
 			out = self.dropout(out)
