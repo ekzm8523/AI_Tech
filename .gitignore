@@ -5,3 +5,6 @@ data/
 *.gz
 *.png
 *.DS_Store
+MRC/Data/
+*.zip
+.idea
