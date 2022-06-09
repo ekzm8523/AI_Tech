@@ -252,6 +252,8 @@ class DSTPreprocessor:
 
     def recover_state(self):
         raise NotImplementedError
+
+
 def tokenize_ontology(ontology, tokenizer, max_seq_length=12):
     slot_types = []
     slot_values = []

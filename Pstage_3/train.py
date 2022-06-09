@@ -22,6 +22,7 @@ from preprocessor import TRADEPreprocessor, SUMBTPreprocessor
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 def train(args):
     # random seed 고정
     set_seed(args.random_seed)
@@ -68,9 +69,6 @@ def train(args):
         tokenized_slot_meta.append(
             tokenizer.encode(slot.replace("-", " "), add_special_tokens=False)
         )
-
-
-
 
     # Model 선언
     model = TRADE(args, tokenized_slot_meta)

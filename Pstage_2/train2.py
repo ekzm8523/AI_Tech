@@ -30,8 +30,8 @@ def compute_metrics(pred):
         'accuracy': acc,
     }
 
+
 def train():
-	
 	##############
 	max_len = 128
 	batch_size = 32

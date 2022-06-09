@@ -9,6 +9,12 @@ python = "^3.8"
 torch = "^1.11.0"
 datasets = "^2.2.2"
 psutil = "^5.9.1"
+wandb = "^0.12.17"
+ray = "^1.12.1"
+scipy = "^1.8.1"
+sentencepiece = "^0.1.96"
+kobert-transformers = "0.5.1"
+gluonnlp = "^0.10.0"
 
 [tool.poetry.dev-dependencies]
 transformers = "^4.19.2"
